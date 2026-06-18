@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 
 # Instalador Abracitos para LyndsOS.
-# Versión adaptada para UEFI
-# Instalador de software libre, desarrollado por David Baña Szymaniak, Licencia GPL v3
+# Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3
 # Hecho con amor a mi gata Abracitos.
+# Versión para UEFI con GPT
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -53,20 +53,28 @@ def check_internet():
     except OSError:
         return False
         
-# Función para guardar logs de lo que sale en la terminal
+# Función para guardar logs de lo que sale en la terminal con creación de rutas segura
 class Logger(object):
     def __init__(self, filename):
         self.terminal = sys.stdout
-        self.log = open(filename, "a", encoding="utf-8")
+        try:
+            # ESTABILIDAD: Crear directorio del log si no existe
+            os.makedirs(os.path.dirname(filename), exist_ok=True)
+            self.log = open(filename, "a", encoding="utf-8")
+        except Exception as e:
+            print(f"[⚠️ AVISO] No se pudo crear el archivo de log físico: {e}")
+            self.log = None
 
     def write(self, message):
         self.terminal.write(message)
-        self.log.write(message)
-        self.log.flush()
+        if self.log:
+            self.log.write(message)
+            self.log.flush()
 
     def flush(self):
         self.terminal.flush()
-        self.log.flush()
+        if self.log:
+            self.log.flush()
 
 def launch_chroot_terminal(target_path):
     print(f"[DEBUG] Solicitud para lanzar terminal chroot en: {target_path}")
@@ -108,8 +116,7 @@ class AbracitosInstaller:
         self.packages_file = os.path.join(self.config_dir, "packages.conf")
         self.is_installing = False
         
-        # FORZADO DE ARQUITECTURA UEFI (GPT)
-        print("[DEBUG] Arquitectura del Host forzada a: UEFI (GPT)")
+        print("[DEBUG] Arquitectura a: UEFI (GPT)")
         
         # Identidad
         self.real_name = tk.StringVar(value="Usuario Lynds")
@@ -200,31 +207,24 @@ class AbracitosInstaller:
             )
             return
 
-        # Detectar el usuario real que invocó el 'sudo'
         sudo_user = os.environ.get("SUDO_USER")
 
         try:
             if sudo_user:
                 print(f"[DEBUG] Script ejecutado con sudo. Preparando entorno KDE para '{sudo_user}'...")
                 
-                # Obtenemos la información real del usuario (UID, Home) desde el sistema
                 user_info = pwd.getpwnam(sudo_user)
                 user_uid = user_info.pw_uid
                 user_home = user_info.pw_dir
                 
-                # Clonamos el entorno actual para preservar DISPLAY, WAYLAND_DISPLAY y XAUTHORITY
                 custom_env = os.environ.copy()
-                
-                # --- REPARAMOS LAS VARIABLES CONFLICTIVAS DEL LOG ---
                 custom_env["HOME"] = user_home
                 custom_env["USER"] = sudo_user
                 custom_env["LOGNAME"] = sudo_user
                 
-                # Forzamos la conexión al bus de DBus y entorno gráfico del usuario real
                 custom_env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{user_uid}/bus"
                 custom_env["XDG_RUNTIME_DIR"] = f"/run/user/{user_uid}"
 
-                # Inyectamos nuestro entorno modificado ('env=custom_env')
                 subprocess.Popen([
                     "sudo",
                     "-E",
@@ -233,7 +233,6 @@ class AbracitosInstaller:
                     "partitionmanager",
                 ], env=custom_env)
             else:
-                # Fallback: Si se ejecutó en una sesión de root puro (su -)
                 print("[DEBUG] Root puro detectado (sin SUDO_USER). Lanzamiento directo...")
                 subprocess.Popen(["partitionmanager"])
 
@@ -320,7 +319,6 @@ class AbracitosInstaller:
         
         tk.Label(self.container, text="Instalador Abracitos", font=("Segoe UI", 26, "bold"), bg=COLOR_CONTAINER, fg=COLOR_TEXT).pack(pady=(60, 20))
         
-        # Etiqueta de estado de red dinámica
         self.net_status_lbl = tk.Label(self.container, font=("Segoe UI", 11, "bold"), bg=COLOR_CONTAINER)
         self.net_status_lbl.pack()
 
@@ -333,7 +331,6 @@ class AbracitosInstaller:
         self.btn_experto = ttk.Button(frame, text="Modo Experto", command=lambda: self.set_mode(True))
         self.btn_experto.pack(side="left", padx=15)
 
-        # Iniciar el bucle de verificación de red
         self.update_network_status()
 
     def update_network_status(self):
@@ -538,7 +535,7 @@ class AbracitosInstaller:
         sum_text += f"• Auto-login: {'SÍ (' + self.session_type.get() + ')' if self.autologin_var.get() else 'NO'}\n"
         sum_text += f"• Hostname: {self.hostname.get()}\n"
         sum_text += f"• Idioma: {self.selected_lang_label.get()}\n"
-        sum_text += "• Tipo de Firmware / Arranque: UEFI (Forzado)\n"
+        sum_text += "• Tipo de Firmware/Arranque: UEFI\n"
         
         if self.is_expert_mode:
             sum_text += f"• Raíz: {self.root_part_full.get()}\n"
@@ -576,11 +573,18 @@ class AbracitosInstaller:
 
     def force_umount_target(self):
         print(f"[DEBUG] [UM] Forzando desmontaje recursivo general de {self.target_mnt}...")
+        # ESTABILIDAD: Desmontaje recursivo estándar
         subprocess.run(["umount", "-R", self.target_mnt], stderr=subprocess.DEVNULL)
+        # ESTABILIDAD: Desmontaje perezoso (lazy) defensivo por si quedan recursos retenidos
+        subprocess.run(["umount", "-lR", self.target_mnt], stderr=subprocess.DEVNULL)
 
     def ad_rotator(self):
         if not os.path.exists(self.ads_dir):
-            return
+            try:
+                # ESTABILIDAD: Asegurar que si falta la carpeta de anuncios no tire error letal
+                os.makedirs(self.ads_dir, exist_ok=True)
+            except:
+                return
 
         extensiones_validas = (".png", ".gif", ".jpg", ".jpeg")
         archivos_anuncios = [f for f in os.listdir(self.ads_dir) if f.lower().endswith(extensiones_validas)]
@@ -644,7 +648,6 @@ class AbracitosInstaller:
                 subprocess.run(["partprobe", drive], check=True)
                 time.sleep(3) 
                 
-                # --- [CAMBIO AUTOMÁTICO DE FLAG - MODO NOVATO] ---
                 try:
                     print("[DEBUG] Aplicando flags 'boot' y 'esp' automáticamente en la partición 1 (Modo Novato)...")
                     subprocess.run(["parted", "-s", drive, "set", "1", "boot", "on"], check=True)
@@ -677,6 +680,7 @@ class AbracitosInstaller:
                 subprocess.run(["mkfs.vfat", "-F32", "-n", "ESP", ep], check=True)
                 subprocess.run(["mkfs.ext4", "-F", "-L", "LyndsOS", rp], check=True)
                 
+            # ESTABILIDAD: Asegurar creación de la raíz de montaje
             os.makedirs(self.target_mnt, exist_ok=True)
             subprocess.run(["mount", rp, self.target_mnt], check=True)
 
@@ -702,6 +706,8 @@ class AbracitosInstaller:
             print("\n[DEBUG] --- FASE 4: Montaje de sistemas virtuales ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Montando sistemas virtuales del Kernel..."))
             
+            # ESTABILIDAD: Forzar creación del /etc destino antes de copiar archivos sueltos
+            os.makedirs(f"{self.target_mnt}/etc", exist_ok=True)
             if os.path.exists("/etc/resolv.conf"):
                 shutil.copy("/etc/resolv.conf", f"{self.target_mnt}/etc/resolv.conf")
             
@@ -749,7 +755,9 @@ EOF
             grub_install_block = ""
             if not self.skip_grub_var.get():
                 grub_install_block = """
-echo "[GRUB DEBUG] Instalando cargador de arranque GRUB UEFI en el primer chroot..."
+echo "[GRUB] Forzando sincronización de datos de disco (sync)..."
+sync
+echo "[GRUB DEBUG] Instalando cargador de arranque GRUB UEFI..."
 grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=LyndsOS --recheck
 """
 
@@ -772,9 +780,7 @@ apt-get update
 
 echo "Instalando locales y soporte de idioma..."
 apt-get install -y locales
-# 1. Forzar ingles base
 echo "en_US.UTF-8 UTF-8" > /etc/locale.gen
-# 2. Añadir el idioma elegido por el usuario
 echo "{locale_val} UTF-8" >> /etc/locale.gen
 dpkg-reconfigure -f noninteractive locales
 echo "LANG={locale_val}" > /etc/default/locale
@@ -790,7 +796,7 @@ update-ca-certificates
 
 if [ ! -z "{string_paquetes_extra}" ]; then
     echo "Instalando lista de paquetes adicionales..."
-    apt-get purge --autoremove pulseaudio
+    apt-get purge --autoremove pulseaudio 2>/dev/null || true
     apt-get install -y {string_paquetes_extra}
 fi
 
@@ -860,6 +866,9 @@ exit 0
             proc_u = subprocess.Popen(["chroot", self.target_mnt, "chpasswd"], stdin=subprocess.PIPE, text=True)
             proc_u.communicate(input=f"{self.username.get()}:{self.u_pass_val}\nroot:{self.r_pass_val}\n")
             
+            # ESTABILIDAD CRÍTICA: Cambiar propietario del home DENTRO del chroot (así mapea bien el UID/GID)
+            subprocess.run(["chroot", self.target_mnt, "chown", "-R", f"{self.username.get()}:{self.username.get()}", f"/home/{self.username.get()}"], check=True)
+
             uuid_root = self.get_uuid(rp)
             uuid_efi = self.get_uuid(ep)
             if not uuid_root:
@@ -871,12 +880,9 @@ exit 0
 UUID={uuid_root} / {fs_root_type} defaults,noatime 0 1
 UUID={uuid_efi} /boot/efi vfat defaults,uid=0,gid=0,umask=0077,shortname=winnt 0 2
 """
+            os.makedirs(f"{self.target_mnt}/etc", exist_ok=True)
             with open(f"{self.target_mnt}/etc/fstab", "w", encoding="utf-8") as fstab_file:
                 fstab_file.write(fstab_content)
-
-            user_home = f"{self.target_mnt}/home/{self.username.get()}"
-            if os.path.exists(user_home):
-                subprocess.run(["chown", "-R", f"{self.username.get()}:{self.username.get()}", user_home], stderr=subprocess.DEVNULL)
             
             self.root.after(0, lambda: self.pbar.configure(value=75))
 
@@ -888,7 +894,7 @@ UUID={uuid_efi} /boot/efi vfat defaults,uid=0,gid=0,umask=0077,shortname=winnt 0
                 self.root.after(0, lambda: self.status_lbl.config(text="Actualizando configuración de GRUB..."))
                 
                 grub_update_script = f"""#!/bin/bash
-echo "[GRUB DEBUG] Actualizando configuraciones de GRUB respetando el archivo personalizado..."
+echo "[GRUB DEBUG] Actualizando configuraciones de GRUB..."
 update-grub
 exit 0
 """
@@ -908,6 +914,11 @@ exit 0
             # FASE 9: Desmontaje y Limpieza
             # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 9: Conclusión del despliegue y desmontando unidades ---")
+            self.root.after(0, lambda: self.status_lbl.config(text="Sincronizando escrituras pendientes en disco (sync)..."))
+            # ESTABILIDAD: Sincronizar datos antes de forzar el desmontaje para evitar pérdidas
+            subprocess.run(["sync"])
+            time.sleep(2)
+
             self.root.after(0, lambda: self.status_lbl.config(text="Finalizando instalación y desmontando unidades..."))
             self.force_umount_target()
             
@@ -921,6 +932,7 @@ exit 0
             self.is_installing = False
             error_msg = str(err)
             print(f"[DEBUG] ERROR CRÍTICO DETECTADO DURANTE LA INSTALACIÓN: {error_msg}")
+            self.force_umount_target()
             self.root.after(0, lambda: self.status_lbl.config(text="Instalación fallida por un error crítico."))
             self.root.after(0, lambda msg=error_msg: messagebox.showerror("Error Crítico", f"Ocurrió un fallo en el despliegue:\n{msg}"))
 
