@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-# Instalador Abracitos para LyndsOS.
-# Versión OPTIMIZADA PARA BIOS / LEGACY MBR.
-# Desarrollado por David Baña Szymaniak.
+# Instalador Abracitos para LyndsOS sobre BIOS
+# Versión adaptada para BIOS/Legacy MBR.
+# Desarrollado por David Baña Szymaniak, Licencia GPL v3
 
 import tkinter as tk
 from tkinter import ttk, messagebox
