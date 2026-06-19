@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 
 # Instalador Abracitos para LyndsGO.
-# Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3
+# Instalador de software libre, desarrollado por David Baña Szymaniak.
+# Licencia GPL v3
 # Hecho con amor a mi gata Abracitos.
 # Versión para UEFI con GPT
 
@@ -122,6 +123,7 @@ class AbracitosInstaller:
         self.real_name = tk.StringVar(value="Usuario Lynds")
         self.username = tk.StringVar(value="user")
         self.hostname = tk.StringVar(value="lyndsos")
+        self.autologin_var = tk.BooleanVar(value=False)
         self.skip_grub_var = tk.BooleanVar(value=False)
         self.is_expert_mode = False
     
@@ -378,7 +380,9 @@ class AbracitosInstaller:
         tk.Label(f, text="Hostname:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=4, column=0, sticky="e", pady=8)
         ttk.Entry(f, textvariable=self.hostname, width=35, validate="key", validatecommand=self.vcmd_host).grid(row=4, column=1, padx=10)
 
-        tk.Label(f, text="* Los privilegios sudo para el usuario principal serán asignados por defecto.", bg=COLOR_CONTAINER, fg=COLOR_TEXT_MUTED, font=("Segoe UI", 9)).grid(row=5, columnspan=2, pady=15)
+        ttk.Checkbutton(f, text="Activar inicio de sesión automático (Auto-login)", variable=self.autologin_var).grid(row=5, columnspan=2, pady=10)
+
+        tk.Label(f, text="* Los privilegios sudo para el usuario principal serán asignados por defecto.", bg=COLOR_CONTAINER, fg=COLOR_TEXT_MUTED, font=("Segoe UI", 9)).grid(row=6, columnspan=2, pady=15)
 
         btn_frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         btn_frame.pack(pady=20)
@@ -516,6 +520,7 @@ class AbracitosInstaller:
         
         sum_text = f"• Modo: {'EXPERTO' if self.is_expert_mode else 'NOVATO'}\n"
         sum_text += f"• Usuario: {self.username.get()}\n"
+        sum_text += f"• Auto-login: {'SÍ' if self.autologin_var.get() else 'NO'}\n"
         sum_text += f"• Hostname: {self.hostname.get()}\n"
         sum_text += f"• Idioma: {self.selected_lang_label.get()}\n"
         sum_text += "• Tipo de Firmware/Arranque: UEFI\n"
@@ -722,6 +727,18 @@ class AbracitosInstaller:
                             paquetes_personalizados.append(line_limpia)
             string_paquetes_extra = " ".join(paquetes_personalizados)
 
+            autologin_script_block = ""
+            if self.autologin_var.get():
+                autologin_script_block = f"""
+echo "[DEBUG] Configurando autologin nativo de GDM3 para el usuario {self.username.get()}..."
+mkdir -p /etc/gdm3
+cat <<EOF > /etc/gdm3/daemon.conf
+[daemon]
+AutomaticLoginEnable=true
+AutomaticLogin={self.username.get()}
+EOF
+"""
+
             grub_packages = "grub-efi-amd64 efibootmgr"
             grub_install_block = ""
             if not self.skip_grub_var.get():
@@ -791,6 +808,8 @@ EOF
 
 echo "{self.hostname.get()}" > /etc/hostname
 echo "127.0.1.1 {self.hostname.get()}" >> /etc/hosts
+
+{autologin_script_block}
 
 systemctl enable NetworkManager >/dev/null 2>&1
 systemctl enable gdm3 >/dev/null 2>&1
