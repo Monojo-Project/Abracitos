@@ -741,7 +741,7 @@ class AbracitosInstaller:
             
             autologin_script_block = ""
             if self.autologin_var.get():
-                session_value = "plasma.desktop" if self.session_type.get() == "Wayland" else "plasmax11.desktop"
+                session_value = "gnome-wayland.desktop" if self.session_type.get() == "Wayland" else "gnome-xorg.desktop"
                 autologin_script_block = f"""
 mkdir -p /etc/sddm.conf.d
 cat <<EOF > /etc/sddm.conf.d/autologin.conf
