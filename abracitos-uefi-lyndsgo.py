@@ -82,7 +82,7 @@ def launch_chroot_terminal(target_path):
         print("[DEBUG] Error: La partición raíz no está montada.")
         messagebox.showerror("Error", "La partición raíz no está montada.")
         return
-    
+     
     cmd = ["konsole", "-e", "sudo", "chroot", target_path, "/bin/bash"]
     try:
         subprocess.Popen(cmd)
@@ -96,7 +96,7 @@ class AbracitosInstaller:
     def __init__(self, root):
         print("[DEBUG] Inicializando AbracitosInstaller...")
         self.root = root
-        
+         
         self.root.title("LyndsGO 1.0 Light - Instalador Abracitos")
         self.root.geometry(resolucion_ventana)
         self.root.configure(bg=COLOR_BG)
@@ -115,15 +115,13 @@ class AbracitosInstaller:
         self.includes_dir = os.path.join(self.config_dir, "includes.chroot")
         self.packages_file = os.path.join(self.config_dir, "packages.conf")
         self.is_installing = False
-        
+         
         print("[DEBUG] Arquitectura a: UEFI (GPT)")
         
         # Identidad
         self.real_name = tk.StringVar(value="Usuario Lynds")
         self.username = tk.StringVar(value="user")
         self.hostname = tk.StringVar(value="lyndsos")
-        self.autologin_var = tk.BooleanVar(value=False)
-        self.session_type = tk.StringVar(value="Wayland")
         self.skip_grub_var = tk.BooleanVar(value=False)
         self.is_expert_mode = False
     
@@ -172,7 +170,7 @@ class AbracitosInstaller:
         # Validaciones de entrada
         self.vcmd_user = (self.root.register(self.validate_user_input), '%S')
         self.vcmd_host = (self.root.register(self.validate_hostname_input), '%S')
-        
+         
         print("[DEBUG] Configurando estilos y layout de la interfaz...")
         self.setup_styles()
         self.create_layout()
@@ -380,21 +378,7 @@ class AbracitosInstaller:
         tk.Label(f, text="Hostname:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=4, column=0, sticky="e", pady=8)
         ttk.Entry(f, textvariable=self.hostname, width=35, validate="key", validatecommand=self.vcmd_host).grid(row=4, column=1, padx=10)
 
-        self.session_frame = tk.Frame(f, bg=COLOR_CONTAINER)
-        tk.Label(self.session_frame, text="Servidor Gráfico:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=0, column=0, sticky="e", pady=8)
-        self.cmb_session = ttk.Combobox(self.session_frame, textvariable=self.session_type, values=["Wayland", "X11"], state="readonly", width=32)
-        self.cmb_session.grid(row=0, column=1, padx=10)
-
-        def toggle_session_visibility():
-            if self.autologin_var.get():
-                self.session_frame.grid(row=6, columnspan=2, pady=5)
-            else:
-                self.session_frame.grid_forget()
-
-        ttk.Checkbutton(f, text="Activar inicio de sesión automático (Auto-login)", variable=self.autologin_var, command=toggle_session_visibility).grid(row=5, columnspan=2, pady=10)
-        toggle_session_visibility()
-
-        tk.Label(f, text="* Los privilegios sudo para el usuario principal serán asignados por defecto.", bg=COLOR_CONTAINER, fg=COLOR_TEXT_MUTED, font=("Segoe UI", 9)).grid(row=7, columnspan=2, pady=5)
+        tk.Label(f, text="* Los privilegios sudo para el usuario principal serán asignados por defecto.", bg=COLOR_CONTAINER, fg=COLOR_TEXT_MUTED, font=("Segoe UI", 9)).grid(row=5, columnspan=2, pady=15)
 
         btn_frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         btn_frame.pack(pady=20)
@@ -532,7 +516,6 @@ class AbracitosInstaller:
         
         sum_text = f"• Modo: {'EXPERTO' if self.is_expert_mode else 'NOVATO'}\n"
         sum_text += f"• Usuario: {self.username.get()}\n"
-        sum_text += f"• Auto-login: {'SÍ (' + self.session_type.get() + ')' if self.autologin_var.get() else 'NO'}\n"
         sum_text += f"• Hostname: {self.hostname.get()}\n"
         sum_text += f"• Idioma: {self.selected_lang_label.get()}\n"
         sum_text += "• Tipo de Firmware/Arranque: UEFI\n"
@@ -738,18 +721,6 @@ class AbracitosInstaller:
                         if line_limpia and not line_limpia.startswith("#"):
                             paquetes_personalizados.append(line_limpia)
             string_paquetes_extra = " ".join(paquetes_personalizados)
-            
-            autologin_script_block = ""
-            if self.autologin_var.get():
-                session_value = "gnome-wayland.desktop" if self.session_type.get() == "Wayland" else "gnome-xorg.desktop"
-                autologin_script_block = f"""
-mkdir -p /etc/sddm.conf.d
-cat <<EOF > /etc/sddm.conf.d/autologin.conf
-[Autologin]
-User={self.username.get()}
-Session={session_value}
-EOF
-"""
 
             grub_packages = "grub-efi-amd64 efibootmgr"
             grub_install_block = ""
@@ -821,10 +792,8 @@ EOF
 echo "{self.hostname.get()}" > /etc/hostname
 echo "127.0.1.1 {self.hostname.get()}" >> /etc/hosts
 
-{autologin_script_block}
-
 systemctl enable NetworkManager >/dev/null 2>&1
-systemctl enable sddm >/dev/null 2>&1
+systemctl enable gdm3 >/dev/null 2>&1
 exit 0
 """
             ruta_script_temporal = os.path.join(self.target_mnt, "tmp", "chroot_install.sh")
@@ -882,7 +851,7 @@ UUID={uuid_efi} /boot/efi vfat defaults,uid=0,gid=0,umask=0077,shortname=winnt 0
 """
             os.makedirs(f"{self.target_mnt}/etc", exist_ok=True)
             with open(f"{self.target_mnt}/etc/fstab", "w", encoding="utf-8") as fstab_file:
-                fstab_file.write(fstab_content)
+                 fstab_file.write(fstab_content)
             
             self.root.after(0, lambda: self.pbar.configure(value=75))
 
