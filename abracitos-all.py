@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Instalador Abracitos para LyndsOS.
-# Instalador de software libre, desarrollado por David Baña Szymaniak.
+# Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3, LyndsOS Project.
 # Hecho con amor a mi gata Abracitos.
 
 import tkinter as tk
