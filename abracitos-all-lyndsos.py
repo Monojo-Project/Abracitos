@@ -3,6 +3,8 @@
 # Instalador Abracitos para LyndsOS.
 # Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3, LyndsOS Project.
 # Hecho con amor a mi gata Abracitos.
+# Funciona tanto para UEFI como para BIOS, ya que detecta automaticamente de qué es el ordenador.
+# Esta es una versión descontinuada del instalador Abracitos, ya que es más cómodo hacerlo para una sola cosa. Está subido por si quieres modificarlo o cualquier cosa.
 
 import tkinter as tk
 from tkinter import ttk, messagebox
