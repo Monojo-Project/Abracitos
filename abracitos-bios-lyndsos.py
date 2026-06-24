@@ -2,7 +2,7 @@
 
 # Instalador Abracitos para LyndsOS sobre BIOS
 # Versión adaptada para BIOS/Legacy MBR.
-# Desarrollado por David Baña Szymaniak, Licencia GPL v3
+# Desarrollado por David Baña Szymaniak. Licencia GPL v3, LyndsOS Project
 
 import tkinter as tk
 from tkinter import ttk, messagebox
