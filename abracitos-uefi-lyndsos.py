@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # Instalador Abracitos para LyndsOS.
-# Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3
+# Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3, LyndsOS Project
 # Hecho con amor a mi gata Abracitos.
 # Versión para UEFI con GPT
 
@@ -325,10 +325,10 @@ class AbracitosInstaller:
         frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         frame.pack(pady=50)
         
-        self.btn_novato = ttk.Button(frame, text="Modo Novato", command=lambda: self.set_mode(False))
+        self.btn_novato = ttk.Button(frame, text="Modo Novato (particionado automático)", command=lambda: self.set_mode(False))
         self.btn_novato.pack(side="left", padx=15)
         
-        self.btn_experto = ttk.Button(frame, text="Modo Experto", command=lambda: self.set_mode(True))
+        self.btn_experto = ttk.Button(frame, text="Modo Experto (particionado manual)", command=lambda: self.set_mode(True))
         self.btn_experto.pack(side="left", padx=15)
 
         self.update_network_status()
@@ -692,7 +692,6 @@ class AbracitosInstaller:
             
             cmd_debootstrap = [
                 "debootstrap",
-                "--variant=minbase",
                 "trixie",
                 self.target_mnt,
                 "http://deb.debian.org/debian/"
