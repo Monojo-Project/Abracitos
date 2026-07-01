@@ -4,7 +4,7 @@
 # Instalador de software libre, desarrollado por David Baña Szymaniak. Licencia GPL v3, LyndsOS Project
 # Hecho con amor a mi gata Abracitos.
 # Versión para UEFI con GPT
-# Abracitos 1.1: más modular, con antes_chroot.sh y despues_chroot.sh
+# Versión 1.1: más modularidad con antes_chroot.sh y despues_chroot.sh
 
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -17,7 +17,7 @@ import socket
 import shutil
 import sys
 import pwd  # Gestor de información del usuario
-from PIL import Image, ImageTk, ImageOps
+from PIL import Image, ImageTk
 
 # --- CONFIGURACIÓN GLOBAL DE INTERFAZ ---
 resolucion_ventana = "1600x1100"
@@ -46,14 +46,14 @@ else:
 def check_root():
     print("[DEBUG] Verificando privilegios de root...")
     return os.geteuid() == 0
-    
+
 def check_internet():
     try:
         socket.create_connection(("deb.debian.org", 80), timeout=2)
         return True
     except OSError:
         return False
-        
+
 # Función para guardar logs de lo que sale en la terminal con creación de rutas segura
 class Logger(object):
     def __init__(self, filename):
@@ -77,27 +77,11 @@ class Logger(object):
         if self.log:
             self.log.flush()
 
-def launch_chroot_terminal(target_path):
-    print(f"[DEBUG] Solicitud para lanzar terminal chroot en: {target_path}")
-    if not os.path.ismount(target_path):
-        print("[DEBUG] Error: La partición raíz no está montada.")
-        messagebox.showerror("Error", "La partición raíz no está montada.")
-        return
-    
-    cmd = ["konsole", "-e", "sudo", "chroot", target_path, "/bin/bash"]
-    try:
-        subprocess.Popen(cmd)
-        print("[DEBUG] Terminal chroot lanzada con éxito.")
-    except Exception as e:
-        print(f"[DEBUG] Fallo al abrir Konsole: {e}")
-        messagebox.showerror("Error", f"No se pudo abrir Konsole: {e}")
-
-
 class AbracitosInstaller:
     def __init__(self, root):
         print("[DEBUG] Inicializando AbracitosInstaller...")
         self.root = root
-        
+
         self.root.title("LyndsOS 1.0 Light - Instalador Abracitos")
         self.root.geometry(resolucion_ventana)
         self.root.configure(bg=COLOR_BG)
@@ -114,11 +98,11 @@ class AbracitosInstaller:
         self.config_dir = "/etc/abracitos"
         self.ads_dir = os.path.join(self.config_dir, "anuncios")
         self.includes_dir = os.path.join(self.config_dir, "includes.chroot")
-        self.packages_file = os.path.join(self.config_dir, "packages.conf")  # Ya no se usa, pero se mantiene por si acaso
+        self.packages_file = os.path.join(self.config_dir, "packages.conf")
         self.is_installing = False
-        
+
         print("[DEBUG] Arquitectura a: UEFI (GPT)")
-        
+
         # Identidad
         self.real_name = tk.StringVar(value="Usuario Lynds")
         self.username = tk.StringVar(value="user")
@@ -127,18 +111,18 @@ class AbracitosInstaller:
         self.session_type = tk.StringVar(value="Wayland")
         self.skip_grub_var = tk.BooleanVar(value=False)
         self.is_expert_mode = False
-    
+
         # Almacenamiento seguro en RAM para persistencia de credenciales
         self.u_pass_var = tk.StringVar()
         self.r_pass_var = tk.StringVar()
         self.u_pass_val = ""
         self.r_pass_val = ""
-        
+
         # Variables internas para almacenar los sistemas de archivos detectados y validados
         self.detected_root_fs = ""
         self.detected_efi_fs = ""
-        
-        # Localización e Idioma (ya no se usan en el instalador, pero se mantienen por si los scripts las necesitan)
+
+        # Localización e Idioma
         self.lang_map = {
             "Español (España)": "es_ES.UTF-8",
             "Español (México)": "es_MX.UTF-8",
@@ -173,7 +157,7 @@ class AbracitosInstaller:
         # Validaciones de entrada
         self.vcmd_user = (self.root.register(self.validate_user_input), '%S')
         self.vcmd_host = (self.root.register(self.validate_hostname_input), '%S')
-        
+
         print("[DEBUG] Configurando estilos y layout de la interfaz...")
         self.setup_styles()
         self.create_layout()
@@ -193,7 +177,7 @@ class AbracitosInstaller:
             uuid_val = output.strip()
             print(f"[DEBUG] UUID encontrado: {uuid_val}")
             return uuid_val
-        except Exception as e: 
+        except Exception as e:
             print(f"[DEBUG] Error al obtener UUID para {partition}: {e}")
             return ""
 
@@ -222,16 +206,16 @@ class AbracitosInstaller:
         try:
             if sudo_user:
                 print(f"[DEBUG] Script ejecutado con sudo. Preparando entorno KDE para '{sudo_user}'...")
-                
+
                 user_info = pwd.getpwnam(sudo_user)
                 user_uid = user_info.pw_uid
                 user_home = user_info.pw_dir
-                
+
                 custom_env = os.environ.copy()
                 custom_env["HOME"] = user_home
                 custom_env["USER"] = sudo_user
                 custom_env["LOGNAME"] = sudo_user
-                
+
                 custom_env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path=/run/user/{user_uid}/bus"
                 custom_env["XDG_RUNTIME_DIR"] = f"/run/user/{user_uid}"
 
@@ -260,13 +244,13 @@ class AbracitosInstaller:
             for line in output.strip().split('\n'):
                 if not line: continue
                 attrs = dict(re.findall(r'(\w+)="([^"]*)"', line))
-                
+
                 name = attrs.get("NAME", "")
                 size = attrs.get("SIZE", "")
                 dev_type = attrs.get("TYPE", "")
                 label = attrs.get("LABEL", "") or "Sin Etiqueta"
                 fstype = attrs.get("FSTYPE", "") or "Sin Formato"
-                
+
                 path = f"/dev/{name}"
                 if only_parts and dev_type == "part":
                     if allowed_fs and fstype.lower() not in [fs.lower() for fs in allowed_fs]:
@@ -275,7 +259,7 @@ class AbracitosInstaller:
                 elif not only_parts and dev_type == "disk":
                     devices.append(f"{path} - {size}")
             print(f"[DEBUG] Dispositivos filtrados encontrados: {devices}")
-        except Exception as e: 
+        except Exception as e:
             print(f"[DEBUG] Error executing lsblk: {e}")
         return devices
 
@@ -288,7 +272,7 @@ class AbracitosInstaller:
         self.style.configure("Step.TLabel", background=COLOR_SIDEBAR, foreground="#bdc3c7", font=("Segoe UI", 11))
         self.style.configure("Action.TButton", font=("Segoe UI", 10, "bold"), padding=8)
         self.style.configure("Refresh.TButton", font=("Segoe UI", 9))
-        
+
         if DARK_MODE:
             self.style.configure("TCheckbutton", background=COLOR_CONTAINER, foreground=COLOR_TEXT)
             self.style.map("TCheckbutton", background=[('active', COLOR_CONTAINER)])
@@ -300,7 +284,7 @@ class AbracitosInstaller:
         self.sidebar.pack_propagate(False)
 
         tk.Label(self.sidebar, text="LyndsOS", font=("Segoe UI", 22, "bold"), bg=COLOR_SIDEBAR, fg=COLOR_ACCENT, pady=25).pack()
-        
+
         self.steps_labels = []
         pasos = ["Bienvenida", "Identidad", "Localización", "Particionado", "Resumen", "Instalación"]
         for p in pasos:
@@ -326,18 +310,18 @@ class AbracitosInstaller:
         print("[DEBUG] Mostrando pantalla: Bienvenida")
         self.set_step_active(0)
         self.clear_container()
-        
+
         tk.Label(self.container, text="Instalador Abracitos", font=("Segoe UI", 26, "bold"), bg=COLOR_CONTAINER, fg=COLOR_TEXT).pack(pady=(60, 20))
-        
+
         self.net_status_lbl = tk.Label(self.container, font=("Segoe UI", 11, "bold"), bg=COLOR_CONTAINER)
         self.net_status_lbl.pack()
 
         frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         frame.pack(pady=50)
-        
+
         self.btn_novato = ttk.Button(frame, text="Modo Novato (particionado automático)", command=lambda: self.set_mode(False))
         self.btn_novato.pack(side="left", padx=15)
-        
+
         self.btn_experto = ttk.Button(frame, text="Modo Experto (particionado manual)", command=lambda: self.set_mode(True))
         self.btn_experto.pack(side="left", padx=15)
 
@@ -347,7 +331,7 @@ class AbracitosInstaller:
         if self.steps_labels[0].cget("foreground") != COLOR_ACCENT:
             return
 
-        is_connected = self.check_internet()
+        is_connected = check_internet()
         if is_connected:
             self.net_status_lbl.config(text="✅ Conexión a Internet establecida.", fg=COLOR_ACCENT)
             self.btn_novato.config(state="normal")
@@ -428,13 +412,13 @@ class AbracitosInstaller:
         tk.Label(self.container, text="Idioma y Región", font=("Segoe UI", 20, "bold"), bg=COLOR_CONTAINER, fg=COLOR_TEXT).pack(pady=20)
         f = tk.Frame(self.container, bg=COLOR_CONTAINER)
         f.pack()
-        
+
         tk.Label(f, text="Idioma del Sistema:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=0, column=0, sticky="e", pady=10, padx=10)
         ttk.Combobox(f, textvariable=self.selected_lang_label, values=list(self.lang_map.keys()), state="readonly", width=30).grid(row=0, column=1, pady=10, sticky="w")
-        
+
         tk.Label(f, text="Zona Horaria:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=1, column=0, sticky="e", pady=10, padx=10)
         ttk.Combobox(f, textvariable=self.selected_tz_label, values=list(self.tz_map.keys()), state="readonly", width=30).grid(row=1, column=1, pady=10, sticky="w")
-        
+
         tk.Label(f, text="Distribución de Teclado:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=2, column=0, sticky="e", pady=10, padx=10)
         ttk.Combobox(f, textvariable=self.kb_layout_name, values=list(self.kb_map.keys()), state="readonly", width=30).grid(row=2, column=1, pady=10, sticky="w")
 
@@ -448,28 +432,28 @@ class AbracitosInstaller:
         self.set_step_active(3)
         self.clear_container()
         tk.Label(self.container, text="Gestión de Discos", font=("Segoe UI", 20, "bold"), bg=COLOR_CONTAINER, fg=COLOR_TEXT).pack(pady=10)
-        
+
         f = tk.Frame(self.container, bg=COLOR_CONTAINER)
         f.pack(pady=10)
 
         if self.is_expert_mode:
             ttk.Button(self.container, text="🛠 Abrir KDE Partition Manager", command=self.open_partition_manager).pack(pady=5)
-            
+
             root_devs = self.get_device_list(only_parts=True, allowed_fs=['ext4', 'btrfs'])
             tk.Label(f, text="Raíz ( / ) [ext4/btrfs]:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=0, column=0, pady=5)
             self.cmb_root = ttk.Combobox(f, values=root_devs, width=55, state="readonly")
             self.cmb_root.grid(row=0, column=1, padx=10)
-        
+
             if self.root_part_full.get() in root_devs:
                 self.cmb_root.set(self.root_part_full.get())
             elif root_devs:
                 self.cmb_root.current(0)
-  
+
             efi_devs = self.get_device_list(only_parts=True, allowed_fs=['vfat', 'fat32', 'msdos'])
             tk.Label(f, text="EFI (boot) [FAT32]:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=1, column=0, pady=5)
             self.cmb_efi = ttk.Combobox(f, values=efi_devs, width=55, state="readonly")
             self.cmb_efi.grid(row=1, column=1, padx=10)
-            
+
             if self.efi_part_full.get() in efi_devs:
                 self.cmb_efi.set(self.efi_part_full.get())
             elif efi_devs:
@@ -481,14 +465,14 @@ class AbracitosInstaller:
             drives = self.get_device_list(only_parts=False)
             self.cmb_drive = ttk.Combobox(self.container, values=drives, width=50, state="readonly")
             self.cmb_drive.pack(pady=20)
-  
+
             if self.selected_drive.get() in drives:
                 self.cmb_drive.set(self.selected_drive.get())
             elif drives:
                 self.cmb_drive.current(0)
 
         ttk.Button(self.container, text="🔄 Refrescar", style="Refresh.TButton", command=self.show_partitions).pack(pady=5)
-        
+
         btn_frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         btn_frame.pack(pady=20)
         ttk.Button(btn_frame, text="Atrás", command=self.show_localization).pack(side="left", padx=10)
@@ -500,21 +484,20 @@ class AbracitosInstaller:
             if not self.cmb_root.get() or not self.cmb_efi.get():
                 messagebox.showerror("Error", "Faltan particiones obligatorias.")
                 return
-            
+
             root_match = re.match(r"^(/dev/\S+)\s+-\s+.*\[(.*)\]$", self.cmb_root.get())
             if not root_match:
                 messagebox.showerror("Error", "Error al procesar el formato de la partición raíz.")
                 return
-            
+
             rp_fs = root_match.group(2).lower().strip()
             if rp_fs not in ['ext4', 'btrfs']:
                 messagebox.showerror("Error", "La partición raíz debe ser ext4 o btrfs.")
                 return
 
             self.root_part_full.set(self.cmb_root.get())
-            # Guardamos el tipo de FS detectado por lsblk, pero luego en install_engine usaremos blkid para confirmar
             self.detected_root_fs = rp_fs
-        
+
             efi_match = re.match(r"^(/dev/\S+)\s+-\s+.*\[(.*)\]$", self.cmb_efi.get())
             if not efi_match:
                 messagebox.showerror("Error", "Error al procesar el formato de la partición EFI.")
@@ -523,16 +506,16 @@ class AbracitosInstaller:
             if ep_fs not in ['vfat', 'fat32', 'msdos']:
                 messagebox.showerror("Error", "La partición EFI debe ser FAT32/vfat.")
                 return
-       
+
             self.efi_part_full.set(self.cmb_efi.get())
             self.detected_efi_fs = ep_fs
-                
+
         else:
             if not self.cmb_drive.get():
                 messagebox.showerror("Error", "Selecciona un disco.")
                 return
             self.selected_drive.set(self.cmb_drive.get())
-            
+
         self.show_summary()
 
     def show_summary(self):
@@ -540,14 +523,14 @@ class AbracitosInstaller:
         self.set_step_active(4)
         self.clear_container()
         tk.Label(self.container, text="Resumen", font=("Segoe UI", 20, "bold"), bg=COLOR_CONTAINER, fg=COLOR_TEXT).pack(pady=10)
-        
+
         sum_text = f"• Modo: {'EXPERTO' if self.is_expert_mode else 'NOVATO'}\n"
         sum_text += f"• Usuario: {self.username.get()}\n"
         sum_text += f"• Auto-login: {'SÍ (' + self.session_type.get() + ')' if self.autologin_var.get() else 'NO'}\n"
         sum_text += f"• Hostname: {self.hostname.get()}\n"
         sum_text += f"• Idioma: {self.selected_lang_label.get()}\n"
         sum_text += "• Tipo de Firmware/Arranque: UEFI\n"
-        
+
         if self.is_expert_mode:
             sum_text += f"• Raíz: {self.root_part_full.get()}\n"
             sum_text += f"• EFI: {self.efi_part_full.get()}\n"
@@ -556,9 +539,9 @@ class AbracitosInstaller:
             sum_text += f"• Disco: {self.selected_drive.get()}\n"
             sum_text += " (Auto-particionado UEFI: 100MB EFI + Resto EXT4)\n"
             sum_text += "• GRUB: Instalación de arranque personalizada LyndsOS"
-        
+
         tk.Label(self.container, text=sum_text, justify="left", bg=COLOR_CARD, fg=COLOR_TEXT, padx=25, pady=25, font=("Consolas", 10), relief="solid", borderwidth=1).pack(pady=20)
-        
+
         btn_frame = tk.Frame(self.container, bg=COLOR_CONTAINER)
         btn_frame.pack(pady=20)
         ttk.Button(btn_frame, text="Atrás", command=self.show_partitions).pack(side="left", padx=10)
@@ -568,31 +551,28 @@ class AbracitosInstaller:
         print("\n[DEBUG] === INICIANDO PROCESO DE INSTALACIÓN ===")
         self.set_step_active(5)
         self.clear_container()
-   
+
         self.status_lbl = tk.Label(self.container, text="Iniciando...", font=("Segoe UI", 12), bg=COLOR_CONTAINER, fg=COLOR_TEXT)
         self.status_lbl.pack(pady=10)
         self.pbar = ttk.Progressbar(self.container, length=500, mode='determinate')
         self.pbar.pack(pady=10)
-        
+
         self.canvas_ad = tk.Canvas(self.container, width=1300, height=1000, bg=COLOR_CARD, highlightthickness=0)
         self.canvas_ad.pack(pady=20)
-        
+
         self.is_installing = True
-   
+
         threading.Thread(target=self.install_engine, daemon=True).start()
         threading.Thread(target=self.ad_rotator, daemon=True).start()
 
     def force_umount_target(self):
         print(f"[DEBUG] [UM] Forzando desmontaje recursivo general de {self.target_mnt}...")
-        # ESTABILIDAD: Desmontaje recursivo estándar
         subprocess.run(["umount", "-R", self.target_mnt], stderr=subprocess.DEVNULL)
-        # ESTABILIDAD: Desmontaje perezoso (lazy) defensivo por si quedan recursos retenidos
         subprocess.run(["umount", "-lR", self.target_mnt], stderr=subprocess.DEVNULL)
 
     def ad_rotator(self):
         if not os.path.exists(self.ads_dir):
             try:
-                # ESTABILIDAD: Asegurar que si falta la carpeta de anuncios no tire error letal
                 os.makedirs(self.ads_dir, exist_ok=True)
             except:
                 return
@@ -608,16 +588,16 @@ class AbracitosInstaller:
         while self.is_installing:
             nombre_archivo = archivos_anuncios[indice_actual]
             ruta_completa = os.path.join(self.ads_dir, nombre_archivo)
-            
+
             try:
                 img_original = Image.open(ruta_completa)
-             
+
                 w_canvas = self.canvas_ad.winfo_width() or 1300
                 h_canvas = self.canvas_ad.winfo_height() or 1000
 
                 img_adaptada = img_original.resize((w_canvas, h_canvas), Image.Resampling.LANCZOS)
                 img_tk = ImageTk.PhotoImage(img_adaptada)
-                
+
                 def update_canvas(img=img_tk, w=w_canvas, h=h_canvas):
                     self.canvas_ad.delete("all")
                     self.canvas_ad.create_image(w//2, h//2, image=img, anchor="center")
@@ -631,23 +611,69 @@ class AbracitosInstaller:
             time.sleep(6)
 
     def run_chroot_script(self, script_host_path):
-        """Copia un script desde el host al chroot en /tmp/ y lo ejecuta."""
+        """Copia, procesa y ejecuta un script desde el host al chroot."""
         if not os.path.exists(script_host_path):
             print(f"[DEBUG] Script {script_host_path} no existe, omitiendo.")
             return
+
         script_name = os.path.basename(script_host_path)
         target_script = os.path.join(self.target_mnt, "tmp", script_name)
-        shutil.copy(script_host_path, target_script)
+
+        # 1. Leer el contenido del script original
+        with open(script_host_path, "r", encoding="utf-8") as f:
+            script_content = f.read()
+
+        # 2. Configurar variables de teclado para evitar errores si no se encuentran
+        kb_layout = "es"
+        kb_variant = ""
+        if self.kb_layout_name.get() in self.kb_map:
+            kb_layout = self.kb_map[self.kb_layout_name.get()]["layout"]
+            kb_variant = self.kb_map[self.kb_layout_name.get()]["variant"]
+
+        # LEER PAQUETES DESDE packages.conf
+        paquetes_extra = ""
+        if os.path.exists(self.packages_file):
+            try:
+                with open(self.packages_file, "r", encoding="utf-8") as f:
+                    lines = [line.strip() for line in f if line.strip() and not line.startswith("#")]
+                    paquetes_extra = " ".join(lines)
+                print(f"[DEBUG] Paquetes extra cargados: {paquetes_extra}")
+            except Exception as e:
+                print(f"[DEBUG] Error al leer {self.packages_file}: {e}")
+        else:
+            print(f"[DEBUG] No se encontró {self.packages_file}, se omiten paquetes extra.")
+
+        # 3. Diccionario de reemplazos (ELIMINADO el bloque de autologin)
+        reemplazos = {
+            "{locale_val}": self.lang_map.get(self.selected_lang_label.get(), "es_ES.UTF-8"),
+            "{timezone}": self.tz_map.get(self.selected_tz_label.get(), "Europe/Madrid"),
+            "{self.hostname.get()}": self.hostname.get(),
+            "{kb_data['layout']}": kb_layout,
+            "{kb_data['variant']}": kb_variant,
+            "{grub_packages}": "grub-efi-amd64 efibootmgr" if not self.skip_grub_var.get() else "",
+            "{string_paquetes_extra}": paquetes_extra,
+            "{grub_install_block}": "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=LyndsOS" if not self.skip_grub_var.get() else ""
+        }
+
+        # 4. Aplicar reemplazos al texto en memoria
+        for clave, valor in reemplazos.items():
+            script_content = script_content.replace(clave, str(valor))
+
+        # 5. Escribir el script procesado en el chroot
+        os.makedirs(os.path.dirname(target_script), exist_ok=True)
+        with open(target_script, "w", encoding="utf-8") as f:
+            f.write(script_content)
+
         os.chmod(target_script, 0o755)
+
+        # 6. Ejecutar y limpiar
         print(f"[DEBUG] Ejecutando script {script_name} dentro del chroot...")
         subprocess.run(["chroot", self.target_mnt, f"/tmp/{script_name}"], check=True)
         os.remove(target_script)
 
     def install_engine(self):
         try:
-            # ---------------------------------------------------------
             # FASE 1: Identificación y particionado
-            # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 1: Identificación y particionado (GPT/UEFI) ---")
             if self.is_expert_mode:
                 rp = self.root_part_full.get().split(" - ")[0].strip()
@@ -656,58 +682,53 @@ class AbracitosInstaller:
             else:
                 drive = self.selected_drive.get().split(" - ")[0].strip()
                 target_disk = drive
-               
+
                 self.root.after(0, lambda: self.status_lbl.config(text="Auto-particionando disco (GPT/UEFI)..."))
-                
+
                 subprocess.run(["umount", "-R", f"{drive}1"], stderr=subprocess.DEVNULL)
                 subprocess.run(["umount", "-R", f"{drive}2"], stderr=subprocess.DEVNULL)
                 if "nvme" in drive or "mmcblk" in drive:
                     subprocess.run(["umount", "-R", f"{drive}p1"], stderr=subprocess.DEVNULL)
                     subprocess.run(["umount", "-R", f"{drive}p2"], stderr=subprocess.DEVNULL)
-     
+
                 subprocess.run(["wipefs", "-a", drive], check=True)
                 subprocess.run(["sgdisk", "-Z", drive], check=True)
                 subprocess.run(["sgdisk", "-n", "1:0:+100M", "-t", "1:ef00", drive], check=True)
                 subprocess.run(["sgdisk", "-n", "2:0:0", "-t", "2:8300", drive], check=True)
                 subprocess.run(["partprobe", drive], check=True)
-                time.sleep(3) 
-                
+                time.sleep(3)
+
                 try:
                     print("[DEBUG] Aplicando flags 'boot' y 'esp' automáticamente en la partición 1 (Modo Novato)...")
                     subprocess.run(["parted", "-s", drive, "set", "1", "boot", "on"], check=True)
                     subprocess.run(["parted", "-s", drive, "set", "1", "esp", "on"], check=True)
                 except Exception as e:
                     print(f"[DEBUG] Advertencia al configurar flags de partición en Modo Novato: {e}")
-   
+
                 if "nvme" in drive or "mmcblk" in drive:
                     ep, rp = f"{drive}p1", f"{drive}p2"
                 else:
                     ep, rp = f"{drive}1", f"{drive}2"
 
-            # ---------------------------------------------------------
             # FASE 2: Preparación de particiones (montaje o formateo)
-            # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 2: Preparación de particiones ---")
             if self.is_expert_mode:
                 self.root.after(0, lambda: self.status_lbl.config(text="Montando particiones existentes..."))
             else:
                 self.root.after(0, lambda: self.status_lbl.config(text="Formateando y montando particiones..."))
-            
+
             self.force_umount_target()
-            
+
             if self.is_expert_mode:
-                # Asegurar que el disco esté sincronizado y la tabla de particiones actualizada
                 print(f"[DEBUG] Forzando partprobe en {target_disk}...")
                 subprocess.run(["partprobe", target_disk], check=False)
                 time.sleep(3)
 
-                # Desmontar específicamente las particiones que vamos a usar
                 print(f"[DEBUG] Desmontando {rp} y {ep} si están montadas...")
                 subprocess.run(["umount", "-l", rp], stderr=subprocess.DEVNULL)
                 subprocess.run(["umount", "-l", ep], stderr=subprocess.DEVNULL)
                 time.sleep(1)
 
-                # Obtener el tipo de sistema de archivos real con blkid
                 real_root_fs = self.get_fstype(rp)
                 real_efi_fs = self.get_fstype(ep)
 
@@ -720,7 +741,6 @@ class AbracitosInstaller:
                 self.detected_root_fs = real_root_fs
                 self.detected_efi_fs = real_efi_fs
 
-                # Montar con tipo explícito
                 mount_cmd = shutil.which('mount') or '/bin/mount'
                 cmd_root = [mount_cmd, "-t", real_root_fs, rp, self.target_mnt]
                 print(f"[DEBUG] Ejecutando: {' '.join(cmd_root)}")
@@ -736,7 +756,6 @@ class AbracitosInstaller:
                     raise Exception(f"Mount de EFI falló: {result.stderr}")
 
             else:
-                # Modo Novato: formatear y montar
                 subprocess.run(["mkfs.vfat", "-F32", "-n", "ESP", ep], check=True)
                 subprocess.run(["mkfs.ext4", "-F", "-L", "LyndsOS", rp], check=True)
                 os.makedirs(self.target_mnt, exist_ok=True)
@@ -744,12 +763,10 @@ class AbracitosInstaller:
                 os.makedirs(f"{self.target_mnt}/boot/efi", exist_ok=True)
                 subprocess.run(["mount", ep, f"{self.target_mnt}/boot/efi"], check=True)
 
-            # ---------------------------------------------------------
             # FASE 3: Debootstrap
-            # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 3: Despliegue del sistema base (debootstrap) ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Instalando sistema base de Debian Trixie (debootstrap)..."))
-            
+
             subprocess.run([
                 "debootstrap",
                 "trixie",
@@ -758,52 +775,42 @@ class AbracitosInstaller:
             ], check=True)
             self.root.after(0, lambda: self.pbar.configure(value=40))
 
-            # ---------------------------------------------------------
             # FASE 4: Montaje de sistemas virtuales
-            # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 4: Montaje de sistemas virtuales ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Montando sistemas virtuales del Kernel..."))
-            
+
             os.makedirs(f"{self.target_mnt}/etc", exist_ok=True)
             if os.path.exists("/etc/resolv.conf"):
                 shutil.copy("/etc/resolv.conf", f"{self.target_mnt}/etc/resolv.conf")
-            
+
             for folder in ["/dev", "/proc", "/sys", "/run"]:
                 target = f"{self.target_mnt}{folder}"
                 os.makedirs(target, exist_ok=True)
                 subprocess.run(["mount", "--rbind", folder, target], check=True)
                 subprocess.run(["mount", "--make-rslave", target], check=True)
-            
+
             if not os.path.ismount(f"{self.target_mnt}/boot/efi"):
                 subprocess.run(["mount", ep, f"{self.target_mnt}/boot/efi"], check=True)
 
-            # ---------------------------------------------------------
-            # FASE 5: Ejecutar script antes_chroot.sh (si existe)
-            # ---------------------------------------------------------
+            # FASE 5: Ejecutar script antes_chroot.sh
             print("\n[DEBUG] --- FASE 5: Ejecutando antes_chroot.sh ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Ejecutando script preconfiguración..."))
             before_script = os.path.join(self.config_dir, "antes_chroot.sh")
             self.run_chroot_script(before_script)
 
-            # ---------------------------------------------------------
-            # FASE 6: Copia de personalizaciones (includes.chroot)
-            # ---------------------------------------------------------
+            # FASE 6: Copia de personalizaciones
             print("\n[DEBUG] --- FASE 6: Copia de configuraciones personalizadas ---")
             if os.path.exists(self.includes_dir):
                 self.root.after(0, lambda: self.status_lbl.config(text="Añadiendo personalizaciones de LyndsOS..."))
                 subprocess.run(["cp", "-a", f"{self.includes_dir}/.", self.target_mnt], check=True)
 
-            # ---------------------------------------------------------
-            # FASE 7: Ejecutar script despues_chroot.sh (si existe)
-            # ---------------------------------------------------------
+            # FASE 7: Ejecutar script despues_chroot.sh
             print("\n[DEBUG] --- FASE 7: Ejecutando despues_chroot.sh ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Ejecutando script postconfiguración..."))
             after_script = os.path.join(self.config_dir, "despues_chroot.sh")
             self.run_chroot_script(after_script)
 
-            # ---------------------------------------------------------
             # FASE 8: Creación del Usuario Físico
-            # ---------------------------------------------------------
             print(f"\n[DEBUG] --- FASE 8: Creación y configuración del usuario ({self.username.get()}) ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Generando usuario del sistema..."))
             subprocess.run([
@@ -814,43 +821,63 @@ class AbracitosInstaller:
                 "-s", "/bin/bash",
                 self.username.get()
             ], check=True)
-      
+
             grupos_necesarios = "sudo,video,render,audio,input"
             subprocess.run(["chroot", self.target_mnt, "usermod", "-aG", grupos_necesarios, self.username.get()], check=True)
-            
+
             proc_u = subprocess.Popen(["chroot", self.target_mnt, "chpasswd"], stdin=subprocess.PIPE, text=True)
             proc_u.communicate(input=f"{self.username.get()}:{self.u_pass_val}\nroot:{self.r_pass_val}\n")
-            
-            # Cambiar propietario del home
+
             subprocess.run(["chroot", self.target_mnt, "chown", "-R", f"{self.username.get()}:{self.username.get()}", f"/home/{self.username.get()}"], check=True)
 
-            # ---------------------------------------------------------
+            # --- NUEVO: CONFIGURACIÓN DIRECTA DE AUTOLOGIN EN PYTHON ---
+            if self.autologin_var.get():
+                print(f"\n[DEBUG] --- Configurando Autologin (SDDM) para {self.username.get()} ---")
+                self.root.after(0, lambda: self.status_lbl.config(text="Configurando autologin del entorno gráfico..."))
+
+                # Mapeo de la selección en la UI a los nombres de sesión de KDE Plasma
+                session_map = {
+                    "Wayland": "plasma",
+                    "X11": "plasmax11"
+                }
+                real_session = session_map.get(self.session_type.get(), "plasma")
+
+                # Crear ruta segura a los archivos de configuración de SDDM dentro del chroot
+                sddm_dir = os.path.join(self.target_mnt, "etc", "sddm.conf.d")
+                os.makedirs(sddm_dir, exist_ok=True)
+
+                # Crear y escribir archivo de autologin directamente en Python
+                sddm_conf_path = os.path.join(sddm_dir, "autologin.conf")
+                with open(sddm_conf_path, "w", encoding="utf-8") as f_sddm:
+                    f_sddm.write("[Autologin]\n")
+                    f_sddm.write(f"User={self.username.get()}\n")
+                    f_sddm.write(f"Session={real_session}\n")
+            # ------------------------------------------------------------
+
             # FASE 9: Generar fstab
-            # ---------------------------------------------------------
             uuid_root = self.get_uuid(rp)
             uuid_efi = self.get_uuid(ep)
             if not uuid_root:
                 raise Exception("No se pudo obtener el UUID de la partición raíz. Abortando.")
-    
+
             fs_root_type = self.detected_root_fs if self.is_expert_mode else "ext4"
-            
+            fs_efi_type = self.detected_efi_fs if self.is_expert_mode else "vfat"
+
             fstab_content = f"""# /etc/fstab: Estático generado por Abracitos
 UUID={uuid_root} / {fs_root_type} defaults,noatime 0 1
-UUID={uuid_efi} /boot/efi vfat defaults,uid=0,gid=0,umask=0077,shortname=winnt 0 2
+UUID={uuid_efi} /boot/efi {fs_efi_type} defaults,uid=0,gid=0,umask=0077,shortname=winnt 0 2
 """
             os.makedirs(f"{self.target_mnt}/etc", exist_ok=True)
             with open(f"{self.target_mnt}/etc/fstab", "w", encoding="utf-8") as fstab_file:
                 fstab_file.write(fstab_content)
-            
+
             self.root.after(0, lambda: self.pbar.configure(value=75))
 
-            # ---------------------------------------------------------
-            # FASE 10: Actualización de GRUB (si no se omite)
-            # ---------------------------------------------------------
+            # FASE 10: Actualización de GRUB
             print("\n[DEBUG] --- FASE 10: Actualización de GRUB y configuración visual ---")
             if not self.skip_grub_var.get():
                 self.root.after(0, lambda: self.status_lbl.config(text="Actualizando configuración de GRUB..."))
-                
+
                 grub_update_script = """#!/bin/bash
 echo "[GRUB DEBUG] Actualizando configuraciones de GRUB..."
 update-grub
@@ -861,15 +888,13 @@ exit 0
                 with open(ruta_grub_script, "w", encoding="utf-8") as f:
                     f.write(grub_update_script)
                 os.chmod(ruta_grub_script, 0o755)
-                
+
                 subprocess.run(["chroot", self.target_mnt, "/tmp/update_grub.sh"], check=True)
                 os.remove(ruta_grub_script)
 
             self.root.after(0, lambda: self.pbar.configure(value=90))
 
-            # ---------------------------------------------------------
             # FASE 11: Desmontaje y Limpieza
-            # ---------------------------------------------------------
             print("\n[DEBUG] --- FASE 11: Conclusión del despliegue y desmontando unidades ---")
             self.root.after(0, lambda: self.status_lbl.config(text="Sincronizando escrituras pendientes en disco (sync)..."))
             subprocess.run(["sync"])
@@ -877,10 +902,10 @@ exit 0
 
             self.root.after(0, lambda: self.status_lbl.config(text="Finalizando instalación y desmontando unidades..."))
             self.force_umount_target()
-            
+
             self.is_installing = False
             self.root.after(0, lambda: self.pbar.configure(value=100))
-        
+
             self.root.after(0, lambda: self.status_lbl.config(text="¡Instalación completada con éxito!"))
             self.root.after(0, lambda: messagebox.showinfo("Éxito", "LyndsOS se ha instalado correctamente. Puedes reiniciar."))
 
@@ -891,6 +916,7 @@ exit 0
             self.force_umount_target()
             self.root.after(0, lambda: self.status_lbl.config(text="Instalación fallida por un error crítico."))
             self.root.after(0, lambda msg=error_msg: messagebox.showerror("Error Crítico", f"Ocurrió un fallo en el despliegue:\n{msg}"))
+
 
 if __name__ == "__main__":
     print("[DEBUG] Iniciando script principal...")
@@ -907,10 +933,10 @@ if __name__ == "__main__":
         root_net.withdraw()
         messagebox.showerror("Error de Conexión", "No se detectó conexión a Internet. Es necesaria para instalar el sistema.")
         sys.exit(1)
-        
+
     sys.stdout = Logger(log_path)
     sys.stderr = sys.stdout
-        
+
     root_win = tk.Tk(className="abracitos_main")
     app = AbracitosInstaller(root_win)
     root_win.mainloop()
