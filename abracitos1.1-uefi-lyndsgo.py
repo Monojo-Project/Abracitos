@@ -42,7 +42,6 @@ else:
     COLOR_CONTAINER = "#ffffff"  # Blanco puro
     COLOR_CARD = "#edeefd"       # Azul claro muy sutil
 
-
 def check_root():
     print("[DEBUG] Verificando privilegios de root...")
     return os.geteuid() == 0
@@ -82,19 +81,19 @@ class AbracitosInstaller:
         print("[DEBUG] Inicializando AbracitosInstaller...")
         self.root = root
 
-        self.root.title("LyndsOS 1.0 Light - Instalador Abracitos")
+        self.root.title("LyndsGO 1.0 Pegasus - Instalador Abracitos")
         self.root.geometry(resolucion_ventana)
         self.root.configure(bg=COLOR_BG)
 
         try:
-            img_icon = tk.PhotoImage(file='/usr/share/icons/LyndsOS/lynds-64x64.png')
+            img_icon = tk.PhotoImage(file='/usr/share/icons/LyndsOS/lyndsgo.png')
             self.root.iconphoto(False, img_icon)
             print("[DEBUG] Icono de ventana cargado correctamente.")
         except Exception as e:
             print(f"[DEBUG] Aviso: No se pudo cargar el icono de la ventana ({e})")
 
         # Configuración de Rutas y Variables
-        self.target_mnt = "/mnt/lyndsos"
+        self.target_mnt = "/mnt/lyndsgo"
         self.config_dir = "/etc/abracitos"
         self.ads_dir = os.path.join(self.config_dir, "anuncios")
         self.includes_dir = os.path.join(self.config_dir, "includes.chroot")
@@ -104,9 +103,9 @@ class AbracitosInstaller:
         print("[DEBUG] Arquitectura a: UEFI (GPT)")
 
         # Identidad
-        self.real_name = tk.StringVar(value="Usuario Lynds")
+        self.real_name = tk.StringVar(value="Usuario Pro Lynds")
         self.username = tk.StringVar(value="user")
-        self.hostname = tk.StringVar(value="lyndsos")
+        self.hostname = tk.StringVar(value="lyndsgo")
         self.skip_grub_var = tk.BooleanVar(value=False)
         self.is_expert_mode = False
 
@@ -284,7 +283,7 @@ class AbracitosInstaller:
         self.sidebar.pack(side="left", fill="y")
         self.sidebar.pack_propagate(False)
 
-        tk.Label(self.sidebar, text="LyndsOS", font=("Segoe UI", 22, "bold"), bg=COLOR_SIDEBAR, fg=COLOR_ACCENT, pady=25).pack()
+        tk.Label(self.sidebar, text="LyndsGO", font=("Segoe UI", 22, "bold"), bg=COLOR_SIDEBAR, fg=COLOR_ACCENT, pady=25).pack()
 
         self.steps_labels = []
         pasos = ["Bienvenida", "Identidad", "Localización", "Particionado", "Resumen", "Instalación"]
@@ -530,7 +529,7 @@ class AbracitosInstaller:
         else:
             sum_text += f"• Disco: {self.selected_drive.get()}\n"
             sum_text += " (Auto-particionado UEFI: 100MB EFI + Resto EXT4)\n"
-            sum_text += "• GRUB: Instalación de arranque personalizada LyndsOS"
+            sum_text += "• GRUB: Instalación de arranque personalizada LyndsGO"
 
         tk.Label(self.container, text=sum_text, justify="left", bg=COLOR_CARD, fg=COLOR_TEXT, padx=25, pady=25, font=("Consolas", 10), relief="solid", borderwidth=1).pack(pady=20)
 
@@ -644,7 +643,7 @@ class AbracitosInstaller:
             "{kb_data['variant']}": kb_variant,
             "{grub_packages}": "grub-efi-amd64 efibootmgr" if not self.skip_grub_var.get() else "",
             "{string_paquetes_extra}": paquetes_extra,
-            "{grub_install_block}": "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=LyndsOS" if not self.skip_grub_var.get() else "",
+            "{grub_install_block}": "grub-install --target=x86_64-efi --efi-directory=/boot/efi --bootloader-id=LyndsGO" if not self.skip_grub_var.get() else "",
             "{auto_login}": "true" if self.auto_login.get() else "false"   # se pasa por si algún script lo usa
         }
 
@@ -750,7 +749,7 @@ class AbracitosInstaller:
 
             else:
                 subprocess.run(["mkfs.vfat", "-F32", "-n", "ESP", ep], check=True)
-                subprocess.run(["mkfs.ext4", "-F", "-L", "LyndsOS", rp], check=True)
+                subprocess.run(["mkfs.ext4", "-F", "-L", "LyndsGO", rp], check=True)
                 os.makedirs(self.target_mnt, exist_ok=True)
                 subprocess.run(["mount", rp, self.target_mnt], check=True)
                 os.makedirs(f"{self.target_mnt}/boot/efi", exist_ok=True)
@@ -794,7 +793,7 @@ class AbracitosInstaller:
             # FASE 6: Copia de personalizaciones
             print("\n[DEBUG] --- FASE 6: Copia de configuraciones personalizadas ---")
             if os.path.exists(self.includes_dir):
-                self.root.after(0, lambda: self.status_lbl.config(text="Añadiendo personalizaciones de LyndsOS..."))
+                self.root.after(0, lambda: self.status_lbl.config(text="Añadiendo personalizaciones de LyndsGO..."))
                 subprocess.run(["cp", "-a", f"{self.includes_dir}/.", self.target_mnt], check=True)
 
             # FASE 7: Ejecutar script despues_chroot.sh
@@ -889,7 +888,7 @@ exit 0
             self.root.after(0, lambda: self.pbar.configure(value=100))
 
             self.root.after(0, lambda: self.status_lbl.config(text="¡Instalación completada con éxito!"))
-            self.root.after(0, lambda: messagebox.showinfo("Éxito", "LyndsOS se ha instalado correctamente. Puedes reiniciar."))
+            self.root.after(0, lambda: messagebox.showinfo("Éxito", "LyndsGO se ha instalado correctamente. Puedes reiniciar."))
 
         except Exception as err:
             self.is_installing = False
