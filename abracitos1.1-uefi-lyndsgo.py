@@ -375,7 +375,7 @@ class AbracitosInstaller:
         ttk.Entry(f, textvariable=self.hostname, width=35, validate="key", validatecommand=self.vcmd_host).grid(row=4, column=1, padx=10)
 
         # ----- NUEVO: Checkbox para autologin -----
-        tk.Label(f, text="Autologin en GDM:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=5, column=0, sticky="e", pady=8)
+        tk.Label(f, text="Autologin:", bg=COLOR_CONTAINER, fg=COLOR_TEXT).grid(row=5, column=0, sticky="e", pady=8)
         ttk.Checkbutton(f, variable=self.auto_login, text="Habilitar inicio automático de sesión").grid(row=5, column=1, padx=10, sticky="w")
 
         tk.Label(f, text="* Los privilegios sudo para el usuario principal serán asignados por defecto.", bg=COLOR_CONTAINER, fg=COLOR_TEXT_MUTED, font=("Segoe UI", 9)).grid(row=6, columnspan=2, pady=5)
@@ -822,18 +822,52 @@ class AbracitosInstaller:
 
             subprocess.run(["chroot", self.target_mnt, "chown", "-R", f"{self.username.get()}:{self.username.get()}", f"/home/{self.username.get()}"], check=True)
 
-            # ----- NUEVO: Configurar autologin en GDM directamente desde Python -----
+            # ----- CONFIGURAR AUTOLOGIN EN GDM (dinámico) -----
             if self.auto_login.get():
-                gdm_conf_path = os.path.join(self.target_mnt, "etc/gdm3/custom.conf")
+                gdm_conf_path = os.path.join(self.target_mnt, "etc/gdm3/daemon.conf")
                 os.makedirs(os.path.dirname(gdm_conf_path), exist_ok=True)
-                with open(gdm_conf_path, "w", encoding="utf-8") as f:
-                    f.write("[daemon]\n")
-                    f.write("AutomaticLoginEnable=True\n")
-                    f.write(f"AutomaticLogin={self.username.get()}\n")
-                print(f"[DEBUG] Autologin habilitado para {self.username.get()}")
+
+                if os.path.exists(gdm_conf_path):
+                    # Editar archivo existente conservando otras opciones
+                    with open(gdm_conf_path, "r", encoding="utf-8") as f:
+                        lines = f.readlines()
+
+                    found_enable = False
+                    found_user = False
+                    new_lines = []
+
+                    for line in lines:
+                        # Descomenta o reescribe AutomaticLoginEnable
+                        if "AutomaticLoginEnable" in line:
+                            new_lines.append("AutomaticLoginEnable = true\n")
+                            found_enable = True
+                        # Descomenta o reescribe AutomaticLogin
+                        elif "AutomaticLogin" in line:
+                            new_lines.append(f"AutomaticLogin = {self.username.get()}\n")
+                            found_user = True
+                        else:
+                            new_lines.append(line)
+
+                    # Añadir líneas si no existían
+                    if not found_enable:
+                        new_lines.append("AutomaticLoginEnable = true\n")
+                    if not found_user:
+                        new_lines.append(f"AutomaticLogin = {self.username.get()}\n")
+
+                    with open(gdm_conf_path, "w", encoding="utf-8") as f:
+                        f.writelines(new_lines)
+
+                else:
+                    # Crear archivo desde cero con el bloque [daemon]
+                    with open(gdm_conf_path, "w", encoding="utf-8") as f:
+                        f.write("[daemon]\n")
+                        f.write("AutomaticLoginEnable = true\n")
+                        f.write(f"AutomaticLogin = {self.username.get()}\n")
+
+                print(f"[DEBUG] Autologin habilitado para {self.username.get()} en {gdm_conf_path}")
+
             else:
-                # Si no se activa, no se crea el archivo (GDM usará su configuración por defecto)
-                print("[DEBUG] Autologin deshabilitado")
+                print("[DEBUG] Autologin deshabilitado (no se modifica daemon.conf)")
 
             # FASE 9: Generar fstab
             uuid_root = self.get_uuid(rp)
