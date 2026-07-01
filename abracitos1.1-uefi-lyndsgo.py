@@ -26,21 +26,21 @@ log_path = "/etc/abracitos/abracitos.log"
 
 # Paleta de colores dinámica según DARK_MODE
 if DARK_MODE:
-    COLOR_BG = "#1e1e2e"
-    COLOR_SIDEBAR = "#11111b"
-    COLOR_TEXT = "#cdd6f4"
-    COLOR_TEXT_MUTED = "#a6adc8"
-    COLOR_ACCENT = "#a6e3a1"
-    COLOR_CONTAINER = "#1e1e2e"
-    COLOR_CARD = "#313244"
+    COLOR_BG = "#181825"         # Azul muy oscuro (base)
+    COLOR_SIDEBAR = "#11111b"    # Casi negro
+    COLOR_TEXT = "#cdd6f4"       # Blanco azulado claro
+    COLOR_TEXT_MUTED = "#a6adc8" # Gris azulado
+    COLOR_ACCENT = "#cba6f7"     # Morado brillante (acentos)
+    COLOR_CONTAINER = "#1e1e2e"  # Azul profundo
+    COLOR_CARD = "#313244"       # Morado azulado oscuro
 else:
-    COLOR_BG = "#ffffff"
-    COLOR_SIDEBAR = "#2c3e50"
-    COLOR_TEXT = "#2c3e50"
-    COLOR_TEXT_MUTED = "#7f8c8d"
-    COLOR_ACCENT = "#2ecc71"
-    COLOR_CONTAINER = "#ffffff"
-    COLOR_CARD = "#f8f9fa"
+    COLOR_BG = "#f5f5ff"         # Lavanda muy claro
+    COLOR_SIDEBAR = "#4a3b72"    # Morado intenso
+    COLOR_TEXT = "#2e2e48"       # Azul marino oscuro
+    COLOR_TEXT_MUTED = "#767699" # Lavanda grisáceo
+    COLOR_ACCENT = "#89b4fa"     # Azul suave
+    COLOR_CONTAINER = "#ffffff"  # Blanco puro
+    COLOR_CARD = "#edeefd"       # Azul claro muy sutil
 
 
 def check_root():
